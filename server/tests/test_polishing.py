@@ -1,8 +1,11 @@
+import json
 import logging
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import httpx
+from openai import AsyncOpenAI
 import pytest
 
 from lili_voice_input.config import Settings
@@ -157,8 +160,8 @@ def test_prompt_file_matches_confirmed_text() -> None:
     [
         ("qwen3.7-flash", False, {"enable_thinking": False}),
         ("deepseek-v4-flash-0731", False, {"thinking": {"type": "disabled"}}),
-        ("deepseek-v4-flash-0731", True, {"thinking": {"type": "enabled"}}),
-        ("deepseek-v4-flash-0731", None, None),
+        ("deepseek-v4-flash-0731", True, {"thinking": {"type": "disabled"}}),
+        ("deepseek-v4-flash-0731", None, {"thinking": {"type": "disabled"}}),
     ],
 )
 async def test_provider_conditionally_sends_thinking_setting(
@@ -182,6 +185,49 @@ async def test_provider_conditionally_sends_thinking_setting(
         assert "extra_body" not in request
     else:
         assert request["extra_body"] == expected_extra_body
+
+
+@pytest.mark.asyncio
+async def test_deepseek_thinking_is_disabled_in_serialized_http_body() -> None:
+    bodies: list[dict[str, object]] = []
+
+    async def handle_request(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "deepseek-v4-flash-0731",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "整理后的文本"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            },
+        )
+
+    http_client = httpx.AsyncClient(transport=httpx.MockTransport(handle_request))
+    client = AsyncOpenAI(api_key="test", base_url="https://dmx.test/v1", http_client=http_client)
+    settings = Settings(
+        POLISH_API_KEY="test",
+        POLISH_MODEL="deepseek-v4-flash-0731",
+        POLISH_ENABLE_THINKING=True,
+    )
+    provider = OpenAICompatiblePolisher(settings, client=client)
+
+    try:
+        assert await provider.polish("八秒") == "整理后的文本"
+    finally:
+        await client.close()
+
+    assert len(bodies) == 1
+    assert bodies[0]["thinking"] == {"type": "disabled"}
+    assert "reasoning_effort" not in bodies[0]
 
 
 @pytest.mark.asyncio

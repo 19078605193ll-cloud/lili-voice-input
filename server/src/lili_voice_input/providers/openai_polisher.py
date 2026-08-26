@@ -44,12 +44,11 @@ class OpenAICompatiblePolisher:
                 "temperature": self.settings.polish_temperature,
                 "max_tokens": self.settings.polish_max_tokens,
             }
-            if self.settings.polish_enable_thinking is not None:
-                if "deepseek" in self.settings.polish_model.casefold():
-                    thinking_type = "enabled" if self.settings.polish_enable_thinking else "disabled"
-                    request["extra_body"] = {"thinking": {"type": thinking_type}}
-                else:
-                    request["extra_body"] = {"enable_thinking": self.settings.polish_enable_thinking}
+            if "deepseek" in self.settings.polish_model.casefold():
+                # DMX DeepSeek requests must explicitly disable thinking instead of relying on a provider default.
+                request["extra_body"] = {"thinking": {"type": "disabled"}}
+            elif self.settings.polish_enable_thinking is not None:
+                request["extra_body"] = {"enable_thinking": self.settings.polish_enable_thinking}
             completion = await self._client.chat.completions.create(**request)
             try:
                 content = completion.choices[0].message.content
