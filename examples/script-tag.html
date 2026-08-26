@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Voice input example</title></head>
+  <body>
+    <textarea id="input" rows="8"></textarea>
+    <button id="start" type="button">开始录音</button>
+    <button id="stop" type="button">停止</button>
+    <script src="http://127.0.0.1:9100/sdk/lili-voice-input.global.js"></script>
+    <script>
+      const input = document.querySelector("#input");
+      const client = new LiliVoiceInput.VoiceInputClient({
+        wsUrl: "ws://127.0.0.1:9100/v1/transcriptions/stream",
+        fallbackUrl: "http://127.0.0.1:9100/v1/transcriptions",
+        workletUrl: "http://127.0.0.1:9100/sdk/pcm-worklet.js"
+      });
+      client.on("final", ({ text }) => {
+        input.setRangeText(text, input.selectionStart, input.selectionEnd, "end");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      document.querySelector("#start").addEventListener("click", () => client.start());
+      document.querySelector("#stop").addEventListener("click", () => client.stop());
+    </script>
+  </body>
+</html>
+

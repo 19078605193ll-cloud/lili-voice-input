@@ -1,0 +1,22 @@
+{
+  "name": "@lili-voice-input/demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "npm run build --workspace @lili-voice-input/browser && node ../../scripts/sync-demo-worklet.mjs",
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "prebuild": "node ../../scripts/sync-demo-worklet.mjs",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.2.6",
+    "@fontsource-variable/geist-mono": "^5.2.6",
+    "@lili-voice-input/browser": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

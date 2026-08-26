@@ -1,0 +1,25 @@
+{
+  "name": "lili-voice-input-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/browser",
+    "apps/demo"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @lili-voice-input/browser && npm run build --workspace @lili-voice-input/demo",
+    "dev": "npm run dev --workspace @lili-voice-input/demo",
+    "test": "npm run test --workspace @lili-voice-input/browser",
+    "typecheck": "npm run typecheck --workspace @lili-voice-input/browser && npm run typecheck --workspace @lili-voice-input/demo",
+    "test:e2e": "playwright test",
+    "export:vendor": "node scripts/export-vendor.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/index.ts", "src/client.ts", "src/audio-capture.ts", "src/protocol.ts", "src/types.ts"],
+  "exclude": ["src/pcm-worklet.ts", "tests"]
+}
+

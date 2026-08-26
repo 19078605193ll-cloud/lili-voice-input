@@ -1,0 +1,11 @@
+{
+  "date": "2026-08-22",
+  "framework": "Vite + vanilla TypeScript",
+  "font_stack": "Geist Variable + Geist Mono Variable",
+  "palette": "Quiet OKLCH tokens",
+  "motion": "motion-cut with functional waveform",
+  "spacing": "4pt semantic scale",
+  "pre_emit_critique": "P5 H5 E5 S5 R5 V4",
+  "slop_test": "pass (1-69)",
+  "responsive_test": "pass (320, 375, 414, 768px)"
+}

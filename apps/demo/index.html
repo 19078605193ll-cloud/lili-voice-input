@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="lili-voice-input 开发者集成工作台" />
+    <link rel="icon" href="/demo/favicon.svg" type="image/svg+xml" />
+    <title>lili-voice-input · 集成工作台</title>
+  </head>
+  <body>
+    <header class="nav-edge">
+      <a class="wordmark" href="/demo/" aria-label="lili-voice-input 首页">lili-voice-input</a>
+      <a class="nav-link" id="docs-link" href="http://127.0.0.1:9100/docs">API Docs ↗</a>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="overline">Developer workbench</p>
+          <h1 id="page-title">验证语音链路。</h1>
+        </div>
+        <p class="intro-copy">从麦克风采集、PCM 分块和 WebSocket 传输，到 ASR、文本润色与安全降级。页面只使用公开 SDK。</p>
+      </section>
+
+      <div class="workbench-grid">
+        <section class="workspace" aria-labelledby="record-heading">
+          <div class="section-heading">
+            <div>
+              <h2 id="record-heading">录音控制</h2>
+              <p id="support-copy">正在检查浏览器能力…</p>
+            </div>
+            <span class="status-badge" id="permission-badge" data-tone="neutral">未请求权限</span>
+          </div>
+
+          <div class="recorder">
+            <button class="record-button" id="record-button" type="button" aria-describedby="record-status">
+              <span class="record-icon" aria-hidden="true"></span>
+              <span id="record-label">开始录音</span>
+            </button>
+            <div class="record-meta">
+              <p class="timer" id="timer">00:00.0</p>
+              <p id="record-status" aria-live="polite">等待开始</p>
+            </div>
+          </div>
+
+          <div class="meter" aria-label="麦克风输入音量" role="img">
+            <span class="meter-fill" id="meter-fill"></span>
+          </div>
+
+          <div class="button-row">
+            <button class="button secondary" id="stop-button" type="button" disabled>停止并转写</button>
+            <button class="button ghost" id="cancel-button" type="button" disabled>取消</button>
+          </div>
+
+          <section class="result-section" aria-labelledby="result-heading">
+            <div class="section-heading result-heading">
+              <div>
+                <h2 id="result-heading">最终转写结果</h2>
+                <p>v1 不发送实时草稿，只显示最终文本。</p>
+              </div>
+              <div class="button-row compact">
+                <button class="button ghost" id="copy-button" type="button">复制</button>
+                <button class="button ghost" id="clear-button" type="button">清空</button>
+              </div>
+            </div>
+            <textarea id="result-text" rows="8" placeholder="完成录音后，最终文本会显示在这里。" aria-label="最终转写结果"></textarea>
+          </section>
+        </section>
+
+        <aside class="diagnostics" aria-labelledby="diagnostics-heading">
+          <div class="section-heading">
+            <div>
+              <h2 id="diagnostics-heading">连接与诊断</h2>
+              <p>Provider 密钥始终留在服务端。</p>
+            </div>
+            <span class="status-badge" id="connection-badge" data-tone="neutral">未连接</span>
+          </div>
+
+          <form id="connection-form" novalidate>
+            <label for="service-url">Service URL</label>
+            <div class="field-row">
+              <input id="service-url" name="service-url" type="url" value="http://127.0.0.1:9100" spellcheck="false" aria-describedby="service-helper" />
+              <button class="button secondary" id="health-button" type="submit">检查服务</button>
+            </div>
+            <p class="field-helper" id="service-helper">例如 http://127.0.0.1:9100</p>
+
+            <label for="access-token">访问令牌（可选）</label>
+            <input id="access-token" name="access-token" type="password" autocomplete="off" aria-describedby="token-helper" />
+            <p class="field-helper" id="token-helper">只保存在当前页面内存中，不写入浏览器存储。</p>
+          </form>
+
+          <dl class="metrics">
+            <div><dt>传输</dt><dd id="metric-source">—</dd></div>
+            <div><dt>润色</dt><dd id="metric-polish">—</dd></div>
+            <div><dt>分片</dt><dd id="metric-segments">—</dd></div>
+            <div><dt>失败分片</dt><dd id="metric-failed">—</dd></div>
+            <div><dt>ASR 等待</dt><dd id="metric-asr">—</dd></div>
+            <div><dt>润色耗时</dt><dd id="metric-polish-time">—</dd></div>
+            <div><dt>总等待</dt><dd id="metric-total">—</dd></div>
+          </dl>
+        </aside>
+      </div>
+
+      <details class="event-log">
+        <summary>协议事件日志</summary>
+        <div class="log-toolbar">
+          <p>日志不包含访问令牌和音频数据。</p>
+          <button class="button ghost" id="copy-diagnostics-button" type="button">复制诊断 JSON</button>
+        </div>
+        <ol id="event-list" aria-live="polite"></ol>
+      </details>
+    </main>
+
+    <footer class="foot-line">
+      <p>lili-voice-input · self-hosted · v0.1.0</p>
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
