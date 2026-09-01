@@ -32,6 +32,15 @@ jobs:
         env:
           MOCK_PROVIDERS_ENABLED: "true"
           POLISH_ENABLED: "true"
+          STT_MAX_ACTIVE_SESSIONS: "20"
+          STT_GLOBAL_ACTIVE_SESSIONS: "100"
+          STT_ADMISSION_QUEUE_SIZE: "20"
+          STT_ADMISSION_WAIT_SECONDS: "5"
+          STT_MAX_CONCURRENCY: "3"
+          STT_ASR_QUEUE_SIZE: "12"
+          STT_ASR_GLOBAL_CONCURRENCY: "20"
+          POLISH_LOCAL_CONCURRENCY: "3"
+          POLISH_QUEUE_SIZE: "12"
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           uv sync --frozen
@@ -50,6 +59,12 @@ jobs:
           -e BASE_WS=ws://127.0.0.1:9100
           -e VUS=10 -e DURATION=1m -e AUDIO_SECONDS=10
           grafana/k6:0.57.0 run load/k6-websocket.js
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-server-load-log
+          path: /tmp/lili-voice-input.log
 
   web:
     runs-on: ubuntu-latest
@@ -68,8 +83,13 @@ jobs:
 
   secrets:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

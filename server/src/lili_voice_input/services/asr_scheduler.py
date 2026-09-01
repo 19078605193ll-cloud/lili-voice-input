@@ -240,7 +240,9 @@ class AsrScheduler:
                     job.session_id,
                     type(exc).__name__,
                     round((provider_started_at - job.submitted_at) * 1000) if provider_started_at is not None else None,
-                    round((time.perf_counter() - provider_started_at) * 1000) if provider_started_at is not None else None,
+                    round((time.perf_counter() - provider_started_at) * 1000)
+                    if provider_started_at is not None
+                    else None,
                     self.request_timeout_seconds,
                 )
                 if job.future is not None and not job.future.done():

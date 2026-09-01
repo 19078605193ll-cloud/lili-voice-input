@@ -56,9 +56,8 @@ async def test_provider_error_exposes_only_safe_diagnostics(caplog: pytest.LogCa
     client = httpx.AsyncClient(base_url="https://provider.example", transport=httpx.MockTransport(handler))
     provider = OpenRouterAsrProvider(settings, client=client)
     try:
-        with caplog.at_level("WARNING"):
-            with pytest.raises(AsrProviderError) as raised:
-                await provider.transcribe(b"wav-bytes", audio_format="wav")
+        with caplog.at_level("WARNING"), pytest.raises(AsrProviderError) as raised:
+            await provider.transcribe(b"wav-bytes", audio_format="wav")
     finally:
         await client.aclose()
 

@@ -7,11 +7,7 @@ from pathlib import Path
 class MockAsrProvider:
     def __init__(self, delay_ms: int = 10, text_file: Path | None = None) -> None:
         self.delay_seconds = delay_ms / 1000
-        self.text = (
-            text_file.read_text(encoding="utf-8").strip()
-            if text_file is not None
-            else "模拟语音转写结果"
-        )
+        self.text = text_file.read_text(encoding="utf-8").strip() if text_file is not None else "模拟语音转写结果"
 
     async def transcribe(self, audio: bytes, *, audio_format: str, language: str | None = None) -> str:
         await asyncio.sleep(self.delay_seconds)

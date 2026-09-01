@@ -42,9 +42,7 @@ class OpenAICompatiblePolisher:
         self._owns_client = client is None
         prompts_path = Path(__file__).resolve().parent.parent / "prompts"
         self.system_prompt = (prompts_path / "stt_polish_system_prompt.txt").read_text(encoding="utf-8").strip()
-        self.user_prompt_template = (
-            prompts_path / "stt_polish_user_prompt.txt"
-        ).read_text(encoding="utf-8").strip()
+        self.user_prompt_template = (prompts_path / "stt_polish_user_prompt.txt").read_text(encoding="utf-8").strip()
 
     async def polish(self, transcript: str) -> str:
         if not self.settings.polish_api_key.strip() or not self.settings.polish_model.strip():

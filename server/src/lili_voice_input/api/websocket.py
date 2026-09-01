@@ -187,11 +187,7 @@ async def stream_transcription(websocket: WebSocket) -> None:
                     result = await session.finalize()
                 except ValueError as exc:
                     code = "EMPTY_AUDIO" if str(exc) == "empty_audio" else "INVALID_STATE"
-                    detail = (
-                        "没有检测到语音，或说话时间太短，请重试"
-                        if code == "EMPTY_AUDIO"
-                        else "语音会话无法完成"
-                    )
+                    detail = "没有检测到语音，或说话时间太短，请重试" if code == "EMPTY_AUDIO" else "语音会话无法完成"
                     session_outcome = code.lower()
                     await send_error(websocket, code, detail, False)
                 except AsrProviderError as exc:

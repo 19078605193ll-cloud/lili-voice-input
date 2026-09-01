@@ -300,19 +300,26 @@ def test_http_service_token_is_enforced() -> None:
         assert authorized.status_code == 200
 
 
-def test_websocket_start_timeout_and_invalid_auth_do_not_consume_capacity() -> None:
+def test_websocket_start_timeout_does_not_consume_capacity() -> None:
     with TestClient(app) as client:
         settings = client.app.state.settings
         original_timeout = settings.stt_start_timeout_seconds
-        original_anonymous = settings.anonymous_tokens_enabled
         settings.stt_start_timeout_seconds = 0.02
         try:
             with client.websocket_connect("/v1/transcriptions/stream") as websocket:
                 error = websocket.receive_json()
                 assert error["code"] == "START_TIMEOUT"
             assert client.app.state.admission.active == 0
+        finally:
+            settings.stt_start_timeout_seconds = original_timeout
 
-            settings.anonymous_tokens_enabled = True
+
+def test_websocket_invalid_auth_does_not_consume_capacity() -> None:
+    with TestClient(app) as client:
+        settings = client.app.state.settings
+        original_anonymous = settings.anonymous_tokens_enabled
+        settings.anonymous_tokens_enabled = True
+        try:
             with client.websocket_connect("/v1/transcriptions/stream") as websocket:
                 websocket.send_json(
                     {
@@ -327,7 +334,6 @@ def test_websocket_start_timeout_and_invalid_auth_do_not_consume_capacity() -> N
                 assert error["code"] == "UNAUTHORIZED"
             assert client.app.state.admission.active == 0
         finally:
-            settings.stt_start_timeout_seconds = original_timeout
             settings.anonymous_tokens_enabled = original_anonymous
 
 

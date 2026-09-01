@@ -4,7 +4,8 @@ import asyncio
 import base64
 import logging
 import time
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from uuid import uuid4
 
 import httpx
@@ -491,12 +492,12 @@ def audio_media_type(audio_format: str) -> str:
 
 def extract_upload_credential(payload: object) -> UploadCredential:
     if not isinstance(payload, dict):
-        raise ValueError("invalid upload credential payload")
+        raise TypeError("invalid upload credential payload")
     candidate = payload.get("data")
     if not isinstance(candidate, dict):
         candidate = payload.get("output")
     if not isinstance(candidate, dict):
-        raise ValueError("missing upload credential data")
+        raise TypeError("missing upload credential data")
 
     def required_string(name: str) -> str:
         value = candidate.get(name)

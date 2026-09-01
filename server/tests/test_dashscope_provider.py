@@ -83,9 +83,10 @@ async def test_dashscope_provider_submits_polls_and_fetches_transcript() -> None
 
 
 def test_extract_transcript_reads_file_transcription_payload() -> None:
-    assert extract_transcript(
-        {"transcripts": [{"text": "第一句。"}, {"text": "第二句。"}, {"text": " "}]}
-    ) == "第一句。\n第二句。"
+    assert (
+        extract_transcript({"transcripts": [{"text": "第一句。"}, {"text": "第二句。"}, {"text": " "}]})
+        == "第一句。\n第二句。"
+    )
 
 
 @pytest.mark.asyncio
@@ -177,12 +178,12 @@ async def test_paraformer_uploads_with_temporary_policy_and_submits_file_urls(
         assert isinstance(oss_bodies, list)
         oss_bodies.append(body)
         for expected in (
-            b'temporary-access-key',
-            b'temporary-signature',
-            b'temporary-policy',
+            b"temporary-access-key",
+            b"temporary-signature",
+            b"temporary-policy",
             b'name="key"',
             b'name="file"',
-            b'wav-bytes',
+            b"wav-bytes",
         ):
             assert expected in body
         return httpx.Response(204)

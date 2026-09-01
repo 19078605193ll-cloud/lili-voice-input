@@ -135,9 +135,8 @@ async def test_provider_rejects_truncated_completion(caplog: pytest.LogCaptureFi
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     provider = OpenAICompatiblePolisher(Settings(POLISH_API_KEY="test", POLISH_MODEL="test"), client=client)
 
-    with caplog.at_level(logging.WARNING):
-        with pytest.raises(PolishProviderError) as raised:
-            await provider.polish("原始转写")
+    with caplog.at_level(logging.WARNING), pytest.raises(PolishProviderError) as raised:
+        await provider.polish("原始转写")
 
     assert raised.value.reason == "invalid_output"
     assert raised.value.provider_code == "finish_reason_length"
@@ -170,9 +169,9 @@ async def test_provider_loads_exact_prompts_and_sends_wrapped_transcript(caplog:
 def test_prompt_file_matches_confirmed_text() -> None:
     prompts_path = Path(__file__).parents[1] / "src/lili_voice_input/prompts"
     assert (prompts_path / "stt_polish_system_prompt.txt").read_text(encoding="utf-8").strip() == EXPECTED_PROMPT
-    assert (
-        prompts_path / "stt_polish_user_prompt.txt"
-    ).read_text(encoding="utf-8").strip() == EXPECTED_USER_PROMPT_TEMPLATE
+    assert (prompts_path / "stt_polish_user_prompt.txt").read_text(
+        encoding="utf-8"
+    ).strip() == EXPECTED_USER_PROMPT_TEMPLATE
 
 
 @pytest.mark.asyncio
