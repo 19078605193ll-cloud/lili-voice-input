@@ -21,10 +21,14 @@ async def live() -> HealthResponse:
 async def ready(request: Request) -> HealthResponse | JSONResponse:
     settings: Settings = request.app.state.settings
     errors = settings.readiness_errors()
+    if getattr(request.app.state, "draining", False):
+        errors.append("Service is draining")
+    redis_runtime = getattr(request.app.state, "redis_runtime", None)
+    if settings.redis_enabled and redis_runtime is not None and not await redis_runtime.check():
+        errors.append(redis_runtime.error or "Redis unavailable")
     if shutil.which(settings.ffmpeg_binary) is None:
         errors.append(f"FFmpeg binary not found: {settings.ffmpeg_binary}")
     payload = HealthResponse(status="not_ready" if errors else "ok", version=__version__, errors=errors)
     if errors:
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload.model_dump())
     return payload
-

@@ -1,0 +1,62 @@
+<link rel="stylesheet" href="../assets/lesson.css">
+<main>
+  <h1>从 ASR 分片文字到用户 final</h1>
+  <p class="lead">本项目不是每个 ASR 分片调用一次 LLM。每名用户的全部 ASR 分片先完成、按顺序合并成一份全文，然后只调用一次整理 LLM。</p>
+
+  <h2>一名用户的路线</h2>
+  <div class="flow">A1、A2、A3 音频分别完成 ASR
+        ↓
+得到 A1文字、A2文字、A3文字
+        ↓
+等待 A 的所有分片任务结束
+        ↓
+按序号 1、2、3 排列
+        ↓
+去除 1 秒重叠造成的重复文字
+        ↓
+得到 A 的一份“合并 ASR 全文”
+        ↓
+进入共享的 LLM 整理限制器
+        ↓
+调用 DMX / DeepSeek 一次
+        ↓
+通过 A 原来的 WebSocket 返回 final</div>
+
+  <h2>A 的“处理框”是什么</h2>
+  <p>A 的 <code>StreamingSession</code> 内有一个按分片序号保存任务的字典。ASR 可以乱序完成，但停止录音后，程序会等待这些任务，在本地按序号整理结果。A 的文字不会和 B 的文字混合。</p>
+
+  <h2>十名用户同时进入整理</h2>
+  <p>当前正常配置为 <code>K_polish=3</code>、<code>Q_polish=12</code>、排队最多 3 秒。十名用户同时完成 ASR 时，3份合并全文立即调用 LLM，另外7份在本 Python 进程中等待；任一工作位释放后，下一个等待者进入。</p>
+
+  <table>
+    <thead><tr><th>状态</th><th>数量</th><th>位置</th></tr></thead>
+    <tbody>
+      <tr><td>正在整理</td><td>最多3</td><td>你的服务器发往 DMX/DeepSeek 的请求</td></tr>
+      <tr><td>等待整理</td><td>最多12</td><td>你的 Python 进程内存</td></tr>
+      <tr><td>排队超时</td><td>等待超过3秒</td><td>不再等待，返回合并 ASR 原文</td></tr>
+      <tr><td>Provider超时</td><td>运行超过15秒</td><td>返回合并 ASR 原文</td></tr>
+    </tbody>
+  </table>
+
+  <h2>LLM收到什么</h2>
+  <p>LLM只收到系统整理规则和该用户的一份合并文字，不收到音频，也不收到单独的 A1/A2/A3。当前模型是 <code>deepseek-v4-flash-0731</code>，通过 DMX 的 OpenAI 兼容接口调用。整理规则要求删除口头语、修正明显错词和简单排版，但不得总结、扩写或改变原意。</p>
+
+  <h2>失败为什么仍能返回文字</h2>
+  <div class="example">整理成功：返回 LLM 整理文字，<code>polish_status=applied</code>。<br>
+  整理关闭：返回合并 ASR 原文，<code>polish_status=disabled</code>。<br>
+  排队满、排队超时、429、网络错误或 LLM 超时：返回合并 ASR 原文，<code>polish_status=fallback</code>。</div>
+  <p>因此整理阶段失败不会丢掉已经成功的 ASR 文字。</p>
+
+  <h2>快速自测</h2>
+  <div class="check">
+    <p><strong>问题：</strong>A 有6个 ASR 分片，项目会调用几次整理 LLM？</p>
+    <details class="answer"><summary>查看答案</summary><p>一次。6段先在本地按顺序合并，再把一份全文交给 LLM。</p></details>
+    <p><strong>问题：</strong>10名用户同时完成 ASR，当前有几份文字同时调用 LLM？</p>
+    <details class="answer"><summary>查看答案</summary><p>最多3份；另外7份最多等待3秒。</p></details>
+  </div>
+
+  <h2>第一手来源</h2>
+  <p>优先阅读项目自己的 <a href="../server/src/lili_voice_input/services/streaming.py">流式会话实现</a>、<a href="../server/src/lili_voice_input/services/polishing.py">整理服务</a>和<a href="../server/src/lili_voice_input/services/limiter.py">并发限制器</a>。有任何一步不清楚，可以继续让代理只解释那一步。</p>
+
+  <p><a href="../reference/voice-pipeline-glossary.html">打开语音输入链路速查</a></p>
+</main>

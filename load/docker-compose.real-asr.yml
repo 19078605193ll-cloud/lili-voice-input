@@ -1,0 +1,23 @@
+services:
+  voice-input:
+    cpus: 2.0
+    mem_limit: 4g
+    volumes:
+      - ./server/src:/app/server/src:ro
+      - ./load:/app/load:ro
+    environment:
+      REDIS_ENABLED: "false"
+      METRICS_ENABLED: "true"
+      MOCK_PROVIDERS_ENABLED: "false"
+      POLISH_ENABLED: "false"
+      ANONYMOUS_TOKENS_ENABLED: "false"
+      SERVICE_TOKEN: "${LOAD_SERVICE_TOKEN:?set LOAD_SERVICE_TOKEN}"
+      STT_MAX_ACTIVE_SESSIONS: "20"
+      STT_ADMISSION_QUEUE_SIZE: "0"
+      STT_ADMISSION_WAIT_SECONDS: "5"
+      STT_MAX_CONCURRENCY: "${REAL_ASR_CONCURRENCY:-1}"
+      STT_ASR_QUEUE_SIZE: "${REAL_ASR_QUEUE_SIZE:-4}"
+      STT_ASR_QUEUE_TIMEOUT_SECONDS: "10"
+      STT_SEGMENT_MAX_RETRIES: "${REAL_ASR_RETRIES:-0}"
+      STT_SEGMENT_TARGET_SECONDS: "${CAP_SEGMENT_TARGET_SECONDS:-30}"
+      STT_SEGMENT_MAX_SECONDS: "${CAP_SEGMENT_MAX_SECONDS:-45}"

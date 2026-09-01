@@ -6,6 +6,7 @@ export type {
   FinalSource,
   PolishReason,
   PolishStatus,
+  QueuedEvent,
   ReadyEvent,
   VoiceInputClientOptions,
   VoiceInputError,

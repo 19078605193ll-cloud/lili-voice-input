@@ -7,11 +7,13 @@
 ## 包含什么
 
 - FastAPI HTTP + WebSocket 服务
-- OpenRouter ASR Provider
+- OpenRouter、DashScope、SiliconFlow ASR Provider
 - OpenAI-compatible 文本润色 Provider
 - TypeScript Browser SDK（ESM + IIFE）
 - 开发者集成工作台
 - Docker 镜像、接入示例和离线测试
+- 匿名短期令牌、会话准入队列和分阶段限流
+- Redis 跨实例配额、Prometheus 指标及 k6 负载测试
 
 v1 不发送实时草稿。`ready.capabilities.partial` 固定为 `false`。
 
@@ -98,6 +100,8 @@ curl -X POST http://127.0.0.1:9100/v1/transcriptions \
 ```
 
 如果配置了 `SERVICE_TOKEN`，HTTP 使用 `Authorization: Bearer ...`，WebSocket 在 `start.auth_token` 中传递。Provider API Key 永远不能放入浏览器。
+
+公开浏览器部署应启用 `ANONYMOUS_TOKENS_ENABLED`，SDK 会自动通过 `/v1/anonymous-tokens` 获取 10 分钟短期令牌。100 路集群拓扑、容量参数、排空发布、告警和验收命令见 [部署文档](docs/deployment.md)。
 
 ## 项目边界
 

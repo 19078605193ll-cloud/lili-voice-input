@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from io import BytesIO
 import math
 import wave
+from io import BytesIO
 
 SAMPLE_RATE = 16_000
 SAMPLE_WIDTH_BYTES = 2
@@ -53,4 +53,3 @@ def pcm_rms(pcm: bytes) -> float:
     samples = memoryview(pcm).cast("h")
     mean_square = sum(sample * sample for sample in samples) / len(samples)
     return math.sqrt(mean_square) / 32768.0
-

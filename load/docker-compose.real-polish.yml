@@ -1,0 +1,26 @@
+services:
+  voice-input:
+    cpus: 2.0
+    mem_limit: 4g
+    volumes:
+      - ./server/src:/app/server/src:ro
+      - ./load/fixtures:/load-fixtures:ro
+    environment:
+      REDIS_ENABLED: "false"
+      METRICS_ENABLED: "true"
+      MOCK_PROVIDERS_ENABLED: "false"
+      MOCK_ASR_ENABLED: "true"
+      MOCK_POLISH_ENABLED: "false"
+      MOCK_ASR_TEXT_FILE: "/load-fixtures/polish-180s.txt"
+      MOCK_PROVIDER_DELAY_MS: "200"
+      POLISH_ENABLED: "true"
+      ANONYMOUS_TOKENS_ENABLED: "false"
+      SERVICE_TOKEN: "${LOAD_SERVICE_TOKEN:?set LOAD_SERVICE_TOKEN}"
+      STT_MAX_ACTIVE_SESSIONS: "${CAP_ACTIVE_SESSIONS:-20}"
+      STT_ADMISSION_QUEUE_SIZE: "0"
+      STT_MAX_CONCURRENCY: "20"
+      STT_ASR_QUEUE_SIZE: "40"
+      STT_SEGMENT_MAX_RETRIES: "0"
+      POLISH_LOCAL_CONCURRENCY: "${CAP_POLISH_CONCURRENCY:-3}"
+      POLISH_QUEUE_SIZE: "${CAP_POLISH_QUEUE_SIZE:-20}"
+      POLISH_QUEUE_TIMEOUT_SECONDS: "3"

@@ -1,0 +1,27 @@
+services:
+  voice-input:
+    cpus: 2.0
+    mem_limit: 4g
+    volumes:
+      - ./server/src:/app/server/src:ro
+      - ./load:/app/load:ro
+    environment:
+      REDIS_ENABLED: "false"
+      METRICS_ENABLED: "true"
+      MOCK_PROVIDERS_ENABLED: "false"
+      MOCK_ASR_ENABLED: "false"
+      MOCK_POLISH_ENABLED: "false"
+      POLISH_ENABLED: "true"
+      ANONYMOUS_TOKENS_ENABLED: "false"
+      SERVICE_TOKEN: "${LOAD_SERVICE_TOKEN:?set LOAD_SERVICE_TOKEN}"
+      STT_MAX_ACTIVE_SESSIONS: "${CAP_ACTIVE_SESSIONS:-10}"
+      STT_ADMISSION_QUEUE_SIZE: "0"
+      STT_MAX_CONCURRENCY: "${CAP_ASR_CONCURRENCY:-5}"
+      STT_ASR_QUEUE_SIZE: "${CAP_ASR_QUEUE_SIZE:-10}"
+      STT_ASR_QUEUE_TIMEOUT_SECONDS: "10"
+      STT_SEGMENT_MAX_RETRIES: "${CAP_ASR_RETRIES:-2}"
+      STT_SEGMENT_TARGET_SECONDS: "${CAP_SEGMENT_TARGET_SECONDS:-30}"
+      STT_SEGMENT_MAX_SECONDS: "${CAP_SEGMENT_MAX_SECONDS:-45}"
+      POLISH_LOCAL_CONCURRENCY: "${CAP_POLISH_CONCURRENCY:-5}"
+      POLISH_QUEUE_SIZE: "${CAP_POLISH_QUEUE_SIZE:-5}"
+      POLISH_QUEUE_TIMEOUT_SECONDS: "3"

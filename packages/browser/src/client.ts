@@ -2,6 +2,7 @@ import { AudioCapture } from "./audio-capture";
 import { parseServerEvent, PROTOCOL_VERSION, SAMPLE_RATE, type StartEvent } from "./protocol";
 import type {
   FinalResult,
+  QueuedEvent,
   ReadyEvent,
   VoiceInputClientOptions,
   VoiceInputError,
@@ -11,6 +12,7 @@ import type {
 
 type Listener<K extends keyof VoiceInputEvents> = (event: VoiceInputEvents[K]) => void;
 type Waiter<T> = { resolve(value: T): void; reject(error: Error): void };
+type ServerFailure = Error & { code?: string; recoverable?: boolean; retry_after_ms?: number; closeCode?: number };
 
 const DEFAULT_CONSTRAINTS: MediaTrackConstraints = {
   channelCount: 1,
@@ -21,7 +23,8 @@ const DEFAULT_CONSTRAINTS: MediaTrackConstraints = {
 
 export class VoiceInputClient {
   state: VoiceInputState = "idle";
-  private readonly options: Required<Omit<VoiceInputClientOptions, "fallbackUrl" | "token">> & Pick<VoiceInputClientOptions, "fallbackUrl" | "token">;
+  private readonly options: Required<Omit<VoiceInputClientOptions, "fallbackUrl" | "token" | "anonymousTokenUrl">>
+    & Pick<VoiceInputClientOptions, "fallbackUrl" | "token" | "anonymousTokenUrl">;
   private readonly listeners = new Map<keyof VoiceInputEvents, Set<(event: never) => void>>();
   private socket: WebSocket | null = null;
   private capture: AudioCapture | null = null;
@@ -30,6 +33,23 @@ export class VoiceInputClient {
   private readyWaiter: Waiter<ReadyEvent> | null = null;
   private finalWaiter: Waiter<FinalResult> | null = null;
   private destroyed = false;
+  private sessionToken: string | undefined;
+  private backpressureSince: number | null = null;
+  private forceFallback = false;
+  private lastSocketFailure: ServerFailure | null = null;
+  private readonly visibilityHandler = () => { if (document.visibilityState === "hidden") void this.cancel(); };
+  private readonly offlineHandler = () => {
+    if (this.state !== "recording") {
+      void this.cancel();
+      return;
+    }
+    this.lastSocketFailure = Object.assign(new Error("Network connection lost"), {
+      code: "NETWORK_ERROR",
+      recoverable: true,
+    });
+    this.forceFallback = true;
+    void this.stop();
+  };
 
   constructor(options: VoiceInputClientOptions) {
     if (!options.wsUrl) throw new Error("wsUrl is required");
@@ -38,12 +58,17 @@ export class VoiceInputClient {
       fallbackUrl: options.fallbackUrl,
       workletUrl: options.workletUrl ?? "/sdk/pcm-worklet.js",
       maxDurationMs: options.maxDurationMs ?? 600_000,
-      connectTimeoutMs: options.connectTimeoutMs ?? 5_000,
+      connectTimeoutMs: options.connectTimeoutMs ?? 8_000,
       finalTimeoutMs: options.finalTimeoutMs ?? 125_000,
       token: options.token,
+      anonymousTokenUrl: options.anonymousTokenUrl,
+      clientIdStorageKey: options.clientIdStorageKey ?? "lili-voice-input-client-id",
       language: options.language ?? "zh",
       mediaConstraints: options.mediaConstraints ?? DEFAULT_CONSTRAINTS,
     };
+    this.sessionToken = options.token;
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.visibilityHandler);
+    if (typeof window !== "undefined") window.addEventListener("offline", this.offlineHandler);
   }
 
   static isSupported(): boolean {
@@ -67,6 +92,7 @@ export class VoiceInputClient {
       onPcm: (buffer, rms) => this.handlePcm(buffer, rms),
     });
     try {
+      this.sessionToken = this.options.token ?? await this.requestAnonymousToken();
       this.setState("requesting-permission");
       await this.capture.requestPermission();
       this.setState("connecting");
@@ -98,6 +124,13 @@ export class VoiceInputClient {
       await this.cleanup(false);
       return result;
     } catch (streamCause) {
+      if (shouldSuppressFallback(streamCause)) {
+        const error = toVoiceError(streamCause, "CAPACITY_REACHED", "Voice transcription capacity reached");
+        await this.cleanup();
+        this.setState("error");
+        this.emit("error", error);
+        return null;
+      }
       try {
         const result = await this.fallbackTranscription();
         this.emit("final", result);
@@ -123,14 +156,33 @@ export class VoiceInputClient {
   async destroy(): Promise<void> {
     await this.cancel();
     this.listeners.clear();
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.visibilityHandler);
+    if (typeof window !== "undefined") window.removeEventListener("offline", this.offlineHandler);
     this.destroyed = true;
   }
 
   private async openSocket(): Promise<ReadyEvent> {
+    let lastError: ServerFailure | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.openSocketOnce();
+      } catch (cause) {
+        lastError = cause as ServerFailure;
+        await this.closeSocketOnly();
+        if (!isRetryableConnectionFailure(lastError) || attempt === 2) throw cause;
+        const base = lastError.retry_after_ms ?? 1_000 * (2 ** attempt);
+        await delay(base + Math.floor(Math.random() * 250));
+      }
+    }
+    throw lastError ?? new Error("Unable to connect");
+  }
+
+  private async openSocketOnce(): Promise<ReadyEvent> {
+    this.lastSocketFailure = null;
     this.socket = new WebSocket(this.options.wsUrl);
     this.socket.binaryType = "arraybuffer";
     this.socket.addEventListener("message", (event) => this.handleSocketMessage(event));
-    this.socket.addEventListener("close", () => this.handleSocketClose());
+    this.socket.addEventListener("close", (event) => this.handleSocketClose(event));
     await new Promise<void>((resolve, reject) => {
       const timeout = window.setTimeout(() => reject(new Error("Connection timed out")), this.options.connectTimeoutMs);
       this.socket?.addEventListener("open", () => { window.clearTimeout(timeout); resolve(); }, { once: true });
@@ -149,7 +201,7 @@ export class VoiceInputClient {
       format: "pcm16",
       sample_rate: SAMPLE_RATE,
       language: this.options.language,
-      ...(this.options.token ? { auth_token: this.options.token } : {}),
+      ...(this.sessionToken ? { auth_token: this.sessionToken } : {}),
     };
     this.socket.send(JSON.stringify(start));
     const event = await ready;
@@ -162,6 +214,17 @@ export class VoiceInputClient {
     this.emit("volume", { rms });
     if (this.options.fallbackUrl) this.pcmChunks.push(buffer.slice(0));
     if ((this.state === "recording" || this.state === "finalizing") && this.socket?.readyState === WebSocket.OPEN) {
+      if (this.socket.bufferedAmount >= 512 * 1024) {
+        this.backpressureSince ??= performance.now();
+        if (performance.now() - this.backpressureSince >= 3_000 && this.state === "recording") {
+          this.forceFallback = true;
+          this.socket.close(1011, "BACKPRESSURE");
+          this.emit("error", { code: "BACKPRESSURE", message: "语音网络发送持续拥塞，正在切换备用上传", recoverable: true });
+          void this.stop();
+        }
+        return;
+      }
+      if (this.socket.bufferedAmount < 256 * 1024) this.backpressureSince = null;
       this.socket.send(buffer);
     }
   }
@@ -173,24 +236,40 @@ export class VoiceInputClient {
       this.readyWaiter?.resolve(message);
       return;
     }
+    if (message.type === "queued") {
+      this.setState("queued");
+      this.emit("queued", message as QueuedEvent);
+      return;
+    }
     if (message.type === "final") {
       this.finalWaiter?.resolve({ ...message, source: "websocket" });
       return;
     }
-    const error = Object.assign(new Error(message.message), { code: message.code });
+    const error = Object.assign(new Error(message.message), {
+      code: message.code,
+      recoverable: message.recoverable,
+      retry_after_ms: message.retry_after_ms,
+    });
+    this.lastSocketFailure = error;
     const handled = Boolean(this.readyWaiter || this.finalWaiter);
     this.readyWaiter?.reject(error);
     this.finalWaiter?.reject(error);
     if (!handled) this.emit("error", message);
   }
 
-  private handleSocketClose(): void {
-    const error = new Error("Voice transcription connection closed");
+  private handleSocketClose(event?: CloseEvent): void {
+    const error = this.lastSocketFailure
+      ?? Object.assign(new Error("Voice transcription connection closed"), { closeCode: event?.code });
     this.readyWaiter?.reject(error);
     this.finalWaiter?.reject(error);
+    if (this.state === "recording") {
+      this.forceFallback = true;
+      void this.stop();
+    }
   }
 
   private async commitSocket(): Promise<FinalResult> {
+    if (this.forceFallback) throw this.lastSocketFailure ?? new Error("Voice transcription switched to fallback");
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) throw new Error("Voice transcription connection closed");
     const result = new Promise<FinalResult>((resolve, reject) => {
       const timeout = window.setTimeout(() => reject(new Error("Final transcription timed out")), this.options.finalTimeoutMs);
@@ -211,10 +290,17 @@ export class VoiceInputClient {
     const formData = new FormData();
     formData.append("file", encodePcm16Wav(this.pcmChunks, SAMPLE_RATE), "recording.wav");
     formData.append("language", this.options.language);
-    const headers = this.options.token ? { Authorization: `Bearer ${this.options.token}` } : undefined;
+    const headers: Record<string, string> = { "X-Voice-Fallback": "1" };
+    if (this.sessionToken) headers.Authorization = `Bearer ${this.sessionToken}`;
     const response = await fetch(this.options.fallbackUrl, { method: "POST", body: formData, headers });
     const data = await response.json().catch(() => null) as Record<string, unknown> | null;
-    if (!response.ok) throw new Error(typeof data?.detail === "string" ? data.detail : "HTTP fallback failed");
+    if (!response.ok) {
+      const message = typeof data?.message === "string" ? data.message : typeof data?.detail === "string" ? data.detail : "HTTP fallback failed";
+      throw Object.assign(new Error(message), {
+        code: data?.code,
+        retry_after_ms: Number(data?.retry_after_ms) || undefined,
+      });
+    }
     if (typeof data?.text !== "string" || !data.text.trim()) throw new Error("HTTP fallback returned no text");
     return {
       type: "final",
@@ -229,6 +315,8 @@ export class VoiceInputClient {
       latency_ms: Number(data.latency_ms) || 0,
       polish_latency_ms: Number(data.polish_latency_ms) || 0,
       total_latency_ms: Number(data.total_latency_ms) || 0,
+      admission_wait_ms: Number(data.admission_wait_ms) || 0,
+      asr_queue_wait_ms: Number(data.asr_queue_wait_ms) || 0,
       source: "http-fallback",
     };
   }
@@ -242,6 +330,35 @@ export class VoiceInputClient {
     this.readyWaiter = null;
     this.finalWaiter = null;
     if (clearPcm) this.pcmChunks = [];
+    this.backpressureSince = null;
+    this.forceFallback = false;
+    this.lastSocketFailure = null;
+  }
+
+  private async closeSocketOnly(): Promise<void> {
+    if (this.socket && this.socket.readyState < WebSocket.CLOSING) this.socket.close();
+    this.socket = null;
+    this.readyWaiter = null;
+    this.finalWaiter = null;
+  }
+
+  private async requestAnonymousToken(): Promise<string | undefined> {
+    const endpoint = this.options.anonymousTokenUrl ?? deriveAnonymousTokenUrl(this.options.fallbackUrl, this.options.wsUrl);
+    if (!endpoint) return undefined;
+    let clientId = localStorage.getItem(this.options.clientIdStorageKey);
+    if (!clientId) {
+      clientId = crypto.randomUUID();
+      localStorage.setItem(this.options.clientIdStorageKey, clientId);
+    }
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: clientId }),
+    });
+    if (response.status === 404) return undefined;
+    const data = await response.json().catch(() => null) as { token?: string; message?: string; detail?: string } | null;
+    if (!response.ok || !data?.token) throw new Error(data?.message ?? data?.detail ?? "Unable to obtain anonymous voice token");
+    return data.token;
   }
 
   private clearStopTimer(): void {
@@ -291,10 +408,12 @@ function writeAscii(view: DataView, offset: number, value: string): void {
 }
 
 function toVoiceError(cause: unknown, code: string, fallback: string): VoiceInputError {
+  const failure = cause as ServerFailure | null;
   return {
-    code,
+    code: failure?.code ?? code,
     message: cause instanceof Error ? cause.message : fallback,
-    recoverable: true,
+    recoverable: failure?.recoverable ?? true,
+    ...(failure?.retry_after_ms ? { retry_after_ms: failure.retry_after_ms } : {}),
     cause,
   };
 }
@@ -309,5 +428,33 @@ function isPolishReason(value: unknown): value is FinalResult["polish_reason"] &
     "provider_error",
     "invalid_output",
     "empty_output",
+    "capacity_reached",
   ].includes(value as string);
+}
+
+function isRetryableConnectionFailure(error: ServerFailure): boolean {
+  return Boolean(
+    error.recoverable
+    || error.closeCode === 1012
+    || error.closeCode === 1013
+    || ["CAPACITY_REACHED", "QUEUE_TIMEOUT", "RATE_LIMITED", "SERVER_RESTART"].includes(error.code ?? ""),
+  );
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function deriveAnonymousTokenUrl(fallbackUrl: string | undefined, wsUrl: string): string | undefined {
+  try {
+    const source = fallbackUrl ? new URL(fallbackUrl) : new URL(wsUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:"));
+    return new URL("/v1/anonymous-tokens", source.origin).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function shouldSuppressFallback(cause: unknown): boolean {
+  const code = (cause as ServerFailure | null)?.code;
+  return code === "CAPACITY_REACHED" || code === "QUEUE_TIMEOUT";
 }

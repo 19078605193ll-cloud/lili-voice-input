@@ -16,7 +16,40 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
+      - run: uvx ruff check src tests
+      - run: uvx ruff format --check src tests
       - run: uv run pytest
+
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Start server with deterministic providers
+        working-directory: server
+        env:
+          MOCK_PROVIDERS_ENABLED: "true"
+          POLISH_ENABLED: "true"
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          uv sync --frozen
+          uv run uvicorn lili_voice_input.main:app --host 127.0.0.1 --port 9100 > /tmp/lili-voice-input.log 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:9100/health/ready && exit 0
+            sleep 1
+          done
+          cat /tmp/lili-voice-input.log
+          exit 1
+      - name: Run 10-user WebSocket smoke load
+        run: >-
+          docker run --rm --network host
+          -v "${{ github.workspace }}:/work" -w /work
+          -e BASE_HTTP=http://127.0.0.1:9100
+          -e BASE_WS=ws://127.0.0.1:9100
+          -e VUS=10 -e DURATION=1m -e AUDIO_SECONDS=10
+          grafana/k6:0.57.0 run load/k6-websocket.js
 
   web:
     runs-on: ubuntu-latest
@@ -40,4 +73,3 @@ jobs:
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
-

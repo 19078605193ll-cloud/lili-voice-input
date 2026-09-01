@@ -1,0 +1,62 @@
+name: nightly-load
+
+on:
+  schedule:
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: Simultaneous WebSocket sessions
+        default: "100"
+      duration:
+        description: Test duration
+        default: "30m"
+
+jobs:
+  websocket-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Start capacity-test server
+        working-directory: server
+        env:
+          MOCK_PROVIDERS_ENABLED: "true"
+          POLISH_ENABLED: "true"
+          SERVICE_TOKEN: "nightly-load-service-token"
+          STT_MAX_ACTIVE_SESSIONS: "100"
+          STT_MAX_CONCURRENCY: "20"
+          STT_ASR_QUEUE_SIZE: "120"
+          POLISH_LOCAL_CONCURRENCY: "20"
+          POLISH_QUEUE_SIZE: "120"
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          uv sync --frozen
+          uv run uvicorn lili_voice_input.main:app --host 127.0.0.1 --port 9100 > /tmp/lili-voice-input.log 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:9100/health/ready && exit 0
+            sleep 1
+          done
+          cat /tmp/lili-voice-input.log
+          exit 1
+      - name: Run sustained WebSocket load
+        env:
+          LOAD_VUS: ${{ inputs.vus || '100' }}
+          LOAD_DURATION: ${{ inputs.duration || '30m' }}
+        run: >-
+          docker run --rm --network host
+          -v "${{ github.workspace }}:/work" -w /work
+          -e BASE_HTTP=http://127.0.0.1:9100
+          -e BASE_WS=ws://127.0.0.1:9100
+          -e SERVICE_TOKEN=nightly-load-service-token
+          -e VUS=${LOAD_VUS} -e DURATION=${LOAD_DURATION} -e AUDIO_SECONDS=30
+          grafana/k6:0.57.0 run load/k6-websocket.js
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-server-load-log
+          path: /tmp/lili-voice-input.log

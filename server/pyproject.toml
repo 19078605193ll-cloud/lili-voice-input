@@ -8,14 +8,18 @@ dependencies = [
   "fastapi>=0.116.0",
   "httpx>=0.28.1",
   "openai>=1.99.0",
+  "prometheus-client>=0.22.0",
+  "PyJWT>=2.10.0",
   "pydantic>=2.11.0",
   "pydantic-settings>=2.10.0",
   "python-multipart>=0.0.20",
+  "redis>=6.4.0",
   "uvicorn[standard]>=0.35.0",
 ]
 
 [dependency-groups]
 dev = [
+  "fakeredis[lua]>=2.31.0",
   "pytest>=8.4.0",
   "pytest-asyncio>=1.1.0",
 ]

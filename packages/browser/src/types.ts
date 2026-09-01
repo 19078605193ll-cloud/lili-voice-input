@@ -2,6 +2,7 @@ export type VoiceInputState =
   | "idle"
   | "requesting-permission"
   | "connecting"
+  | "queued"
   | "recording"
   | "finalizing"
   | "completed"
@@ -16,7 +17,8 @@ export type PolishReason =
   | "network_error"
   | "provider_error"
   | "invalid_output"
-  | "empty_output";
+  | "empty_output"
+  | "capacity_reached";
 export type DegradedStage = "asr" | "polish";
 export type FinalSource = "websocket" | "http-fallback";
 
@@ -32,6 +34,13 @@ export interface ReadyEvent {
   };
 }
 
+export interface QueuedEvent {
+  type: "queued";
+  position: number;
+  estimated_wait_ms: number;
+  max_wait_ms: number;
+}
+
 export interface FinalResult {
   type: "final";
   text: string;
@@ -45,6 +54,8 @@ export interface FinalResult {
   latency_ms: number;
   polish_latency_ms: number;
   total_latency_ms: number;
+  admission_wait_ms: number;
+  asr_queue_wait_ms: number;
   source: FinalSource;
 }
 
@@ -52,6 +63,7 @@ export interface VoiceInputError {
   code: string;
   message: string;
   recoverable: boolean;
+  retry_after_ms?: number;
   cause?: unknown;
 }
 
@@ -59,6 +71,7 @@ export interface VoiceInputEvents {
   statechange: { state: VoiceInputState };
   volume: { rms: number };
   ready: ReadyEvent;
+  queued: QueuedEvent;
   final: FinalResult;
   error: VoiceInputError;
 }
@@ -71,6 +84,8 @@ export interface VoiceInputClientOptions {
   connectTimeoutMs?: number;
   finalTimeoutMs?: number;
   token?: string;
+  anonymousTokenUrl?: string;
+  clientIdStorageKey?: string;
   language?: string;
   mediaConstraints?: MediaTrackConstraints;
 }

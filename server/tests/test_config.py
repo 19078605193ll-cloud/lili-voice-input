@@ -27,6 +27,34 @@ def test_readiness_requires_enabled_provider_configuration() -> None:
     assert len(errors) == 4
 
 
+def test_stage_specific_mocks_override_legacy_mock_switch() -> None:
+    settings = Settings(
+        MOCK_PROVIDERS_ENABLED=False,
+        MOCK_ASR_ENABLED=True,
+        MOCK_POLISH_ENABLED=False,
+        ASR_API_KEY="",
+        ASR_MODEL="",
+        POLISH_ENABLED=True,
+        POLISH_API_KEY="",
+        POLISH_MODEL="",
+    )
+
+    assert settings.use_mock_asr is True
+    assert settings.use_mock_polish is False
+    assert settings.readiness_errors() == [
+        "POLISH_API_KEY is missing while POLISH_ENABLED=true",
+        "POLISH_MODEL is missing while POLISH_ENABLED=true",
+    ]
+
+
+def test_legacy_mock_switch_still_controls_both_stages() -> None:
+    settings = Settings(MOCK_PROVIDERS_ENABLED=True, ASR_API_KEY="", ASR_MODEL="")
+
+    assert settings.use_mock_asr is True
+    assert settings.use_mock_polish is True
+    assert settings.readiness_errors() == []
+
+
 def test_invalid_segment_range_is_rejected() -> None:
     with pytest.raises(ValueError):
         Settings(STT_SEGMENT_TARGET_SECONDS=30, STT_SEGMENT_MAX_SECONDS=20)

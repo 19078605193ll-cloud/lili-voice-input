@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  line-height: 1.65;
+  background: Canvas;
+  color: CanvasText;
+}
+
+body {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+h1, h2 {
+  line-height: 1.25;
+}
+
+h1 {
+  margin-bottom: 8px;
+}
+
+h2 {
+  margin-top: 32px;
+}
+
+.lead {
+  font-size: 1.1rem;
+}
+
+.flow, .example, .check {
+  padding: 16px 18px;
+  border-left: 4px solid LinkText;
+  background: color-mix(in srgb, CanvasText 6%, Canvas);
+}
+
+.flow {
+  white-space: pre-wrap;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 9px 10px;
+  text-align: left;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, Canvas);
+  vertical-align: top;
+}
+
+code {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+}
+
+.answer {
+  margin-top: 8px;
+  padding-left: 16px;
+}

@@ -15,6 +15,7 @@ RUN apt-get update \
     && apt-get install --yes --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
+ENV UV_HTTP_TIMEOUT=120
 COPY server/pyproject.toml server/uv.lock server/README.md ./
 COPY server/src ./src
 RUN uv sync --frozen --no-dev
@@ -24,4 +25,4 @@ ENV STATIC_ROOT=/app/static \
     SERVER_HOST=0.0.0.0 \
     SERVER_PORT=9100
 EXPOSE 9100
-CMD ["uv", "run", "uvicorn", "lili_voice_input.main:app", "--host", "0.0.0.0", "--port", "9100"]
+CMD ["uv", "run", "--no-sync", "uvicorn", "lili_voice_input.main:app", "--host", "0.0.0.0", "--port", "9100"]

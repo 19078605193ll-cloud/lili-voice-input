@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from difflib import SequenceMatcher
 import unicodedata
+from difflib import SequenceMatcher
 
 MAX_OVERLAP_CHARACTERS = 120
 MIN_FUZZY_OVERLAP_CHARACTERS = 4
@@ -75,4 +75,3 @@ def merge_transcript_segments(transcripts: list[str]) -> str:
     for transcript in transcripts:
         merged = merge_transcripts(merged, transcript)
     return merged
-

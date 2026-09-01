@@ -50,6 +50,7 @@ const stateCopy: Record<VoiceInputState, string> = {
   idle: "等待开始",
   "requesting-permission": "正在请求麦克风权限",
   connecting: "正在连接语音服务",
+  queued: "服务繁忙，正在等待可用语音通道",
   recording: "正在录音并发送 PCM 分块",
   finalizing: "正在等待识别、合并和润色",
   completed: "转写完成",
@@ -69,6 +70,7 @@ function buildClient(): VoiceInputClient {
   const instance = new VoiceInputClient({
     wsUrl: `${wsBase}/v1/transcriptions/stream`,
     fallbackUrl: `${base}/v1/transcriptions`,
+    anonymousTokenUrl: `${base}/v1/anonymous-tokens`,
     workletUrl: `${window.location.origin}/demo/pcm-worklet.js`,
     token: tokenInput.value || undefined,
   });
@@ -76,6 +78,10 @@ function buildClient(): VoiceInputClient {
   instance.on("ready", (event) => {
     setBadge(connectionBadge, "已连接", "success");
     addEvent("ready", { session_id: event.session_id, capabilities: event.capabilities });
+    });
+    instance.on("queued", (event) => {
+      setBadge(connectionBadge, `排队中 · 前方 ${Math.max(0, event.position - 1)}`, "warning");
+    addEvent("queued", { ...event });
   });
   instance.on("volume", ({ rms }) => {
     meterFill.style.transform = `scaleX(${Math.min(1, rms * 5).toFixed(3)})`;
@@ -91,7 +97,7 @@ function buildClient(): VoiceInputClient {
 function updateState(state: VoiceInputState): void {
   recordStatus.textContent = stateCopy[state];
   const recording = state === "recording";
-  const busy = ["requesting-permission", "connecting", "finalizing"].includes(state);
+  const busy = ["requesting-permission", "connecting", "queued", "finalizing"].includes(state);
   recordButton.disabled = recording || busy;
   recordButton.dataset.recording = String(recording);
   recordButton.dataset.state = busy ? "loading" : state === "error" ? "error" : state === "completed" ? "success" : "default";

@@ -1,10 +1,16 @@
+import asyncio
+import threading
+import time
 from array import array
+from dataclasses import dataclass
 
 import pytest
 
+from lili_voice_input.audio.converter import AudioConverter
 from lili_voice_input.audio.merger import merge_transcript_segments, merge_transcripts
 from lili_voice_input.audio.pcm import SAMPLE_RATE, pcm16_to_wav, wav_to_pcm16
 from lili_voice_input.audio.segmenter import AudioSegmenter
+from lili_voice_input.config import Settings
 
 
 def pcm(value: int, milliseconds: int) -> bytes:
@@ -76,3 +82,34 @@ def test_segmenter_force_cuts_continuous_speech_with_contiguous_sequences() -> N
 def test_merge_removes_exact_and_fuzzy_boundaries() -> None:
     assert merge_transcripts("修改配置后需要重启", "需要重启后端") == "修改配置后需要重启后端"
     assert merge_transcript_segments(["hello world", "world again"]) == "hello world again"
+
+
+@dataclass
+class _CompletedProcess:
+    returncode: int = 0
+    stdout: bytes = b"RIFF"
+    stderr: bytes = b""
+
+
+@pytest.mark.asyncio
+async def test_ffmpeg_converter_never_exceeds_configured_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
+    active = 0
+    maximum = 0
+    lock = threading.Lock()
+
+    def fake_run(*args: object, **kwargs: object) -> _CompletedProcess:
+        nonlocal active, maximum
+        with lock:
+            active += 1
+            maximum = max(maximum, active)
+        time.sleep(0.03)
+        with lock:
+            active -= 1
+        return _CompletedProcess()
+
+    monkeypatch.setattr("lili_voice_input.audio.converter.subprocess.run", fake_run)
+    converter = AudioConverter(
+        Settings(polish_enabled=False, ffmpeg_max_concurrency=2, ffmpeg_queue_size=8, ffmpeg_queue_timeout_seconds=1)
+    )
+    await asyncio.gather(*(converter.convert_to_wav(b"audio") for _ in range(8)))
+    assert maximum == 2

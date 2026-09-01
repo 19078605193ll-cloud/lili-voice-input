@@ -10,6 +10,14 @@ describe("protocol", () => {
 
   it("parses supported server events and rejects unrelated JSON", () => {
     expect(parseServerEvent('{"type":"ready","protocol_version":"1"}')?.type).toBe("ready");
+    const queued = parseServerEvent(
+      '{"type":"queued","position":3,"estimated_wait_ms":1200,"max_wait_ms":5000}',
+    );
+    expect(queued?.type).toBe("queued");
+    if (queued?.type === "queued") {
+      expect(queued.position).toBe(3);
+      expect(queued.max_wait_ms).toBe(5000);
+    }
     const final = parseServerEvent(
       '{"type":"final","text":"结果","polished":false,"polish_status":"fallback","polish_reason":"timeout","degraded":true,"degraded_stage":"polish"}',
     );

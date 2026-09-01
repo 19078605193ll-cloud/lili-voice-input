@@ -9,9 +9,8 @@ services:
       - "127.0.0.1:9100:9100"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9100/health/live')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9100/health/ready')"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 10s
-

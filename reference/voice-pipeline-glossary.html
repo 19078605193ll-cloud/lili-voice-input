@@ -1,0 +1,18 @@
+<link rel="stylesheet" href="../assets/lesson.css">
+<main>
+  <h1>语音输入链路速查</h1>
+  <table>
+    <thead><tr><th>名词</th><th>准确含义</th></tr></thead>
+    <tbody>
+      <tr><td><code>C</code></td><td>同时占用完整语音会话的已准入用户数。</td></tr>
+      <tr><td>ASR 大段</td><td>一名用户约 30～45 秒或停止时形成的音频任务。</td></tr>
+      <tr><td><code>K_asr</code></td><td>所有用户合计，同时调用真实 ASR Provider 的大段数。</td></tr>
+      <tr><td><code>Q_asr</code></td><td>等待 ASR 工作位的大段总数。</td></tr>
+      <tr><td>合并文字</td><td>按分片序号排列并去除重叠后的单份用户全文。</td></tr>
+      <tr><td><code>K_polish</code></td><td>同时调用整理 LLM 的用户全文数。</td></tr>
+      <tr><td><code>Q_polish</code></td><td>等待整理工作位的用户全文数。</td></tr>
+      <tr><td>fallback</td><td>整理不可用时返回未整理的合并 ASR 文字，不丢弃有效识别结果。</td></tr>
+      <tr><td>final</td><td>通过原 WebSocket 返回给该用户的最终结果事件。</td></tr>
+    </tbody>
+  </table>
+</main>

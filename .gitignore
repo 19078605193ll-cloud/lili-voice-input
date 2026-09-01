@@ -16,6 +16,7 @@ apps/demo/public/pcm-worklet.js
 server/src/lili_voice_input/static/demo/
 server/src/lili_voice_input/static/sdk/
 test-results/
+test-data/voice/
 playwright-report/
 .playwright-cli/
 demo-*.png
