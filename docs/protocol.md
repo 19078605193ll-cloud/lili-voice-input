@@ -61,6 +61,6 @@
 }
 ```
 
-容量满或队列超时后 WebSocket 使用 1013 关闭；滚动发布使用 1012。稳定错误码包括 `START_TIMEOUT`、`IDLE_TIMEOUT`、`QUEUE_TIMEOUT`、`CAPACITY_REACHED`、`RATE_LIMITED`、`BACKPRESSURE` 和 `SERVER_RESTART`。
+容量满或队列超时后 WebSocket 使用 1013 关闭；滚动发布使用 1012。没有检测到语音或连续有效语音不足 `STT_MIN_SPEECH_MS` 时返回 `EMPTY_AUDIO`，默认阈值为 200ms。稳定错误码包括 `EMPTY_AUDIO`、`START_TIMEOUT`、`IDLE_TIMEOUT`、`QUEUE_TIMEOUT`、`CAPACITY_REACHED`、`RATE_LIMITED`、`BACKPRESSURE` 和 `SERVER_RESTART`。
 
-HTTP fallback 使用 `/v1/transcriptions`。容量不足返回 429、`Retry-After: 5` 和 `retry_after_ms=5000`。客户端收到明确的 `CAPACITY_REACHED` 或 `QUEUE_TIMEOUT` 后不得立即转 HTTP，以免放大过载。
+HTTP fallback 使用 `/v1/transcriptions`。容量不足返回 429、`Retry-After: 5` 和 `retry_after_ms=5000`。HTTP 空录音返回 `422 / EMPTY_AUDIO`。客户端收到明确的 `EMPTY_AUDIO`、`CAPACITY_REACHED` 或 `QUEUE_TIMEOUT` 后不得转 HTTP；对同一份空录音执行 fallback 没有意义，容量错误转 HTTP 则会放大过载。

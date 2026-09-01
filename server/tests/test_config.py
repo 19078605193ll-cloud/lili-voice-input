@@ -58,3 +58,10 @@ def test_legacy_mock_switch_still_controls_both_stages() -> None:
 def test_invalid_segment_range_is_rejected() -> None:
     with pytest.raises(ValueError):
         Settings(STT_SEGMENT_TARGET_SECONDS=30, STT_SEGMENT_MAX_SECONDS=20)
+
+
+def test_stream_options_include_minimum_speech_duration() -> None:
+    settings = Settings(POLISH_ENABLED=False)
+
+    assert settings.stt_min_speech_ms == 200
+    assert settings.stream_options()["min_speech_ms"] == 200

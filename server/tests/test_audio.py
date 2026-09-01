@@ -51,6 +51,39 @@ def test_segmenter_discards_all_silence() -> None:
     assert not segmenter.has_speech
 
 
+def test_segmenter_rejects_a_single_transient_noise_frame() -> None:
+    segmenter = AudioSegmenter(
+        target_seconds=1,
+        max_seconds=2,
+        overlap_ms=100,
+        silence_ms=200,
+        min_speech_ms=200,
+    )
+
+    assert segmenter.add_frame(pcm(5000, 100)) is None
+    assert segmenter.add_frame(pcm(0, 200)) is None
+    assert segmenter.finalize() is None
+    assert not segmenter.has_speech
+
+
+def test_segmenter_accepts_minimum_consecutive_speech() -> None:
+    segmenter = AudioSegmenter(
+        target_seconds=1,
+        max_seconds=2,
+        overlap_ms=100,
+        silence_ms=200,
+        min_speech_ms=200,
+    )
+
+    assert segmenter.add_frame(pcm(5000, 100)) is None
+    assert segmenter.add_frame(pcm(5000, 100)) is None
+    segment = segmenter.finalize()
+
+    assert segment is not None
+    assert segment.duration_ms == 200
+    assert segmenter.has_speech
+
+
 def test_segmenter_does_not_emit_silence_after_speech() -> None:
     segmenter = AudioSegmenter(target_seconds=1, max_seconds=2, overlap_ms=100, silence_ms=200)
     segments = []

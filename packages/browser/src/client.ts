@@ -456,5 +456,5 @@ function deriveAnonymousTokenUrl(fallbackUrl: string | undefined, wsUrl: string)
 
 function shouldSuppressFallback(cause: unknown): boolean {
   const code = (cause as ServerFailure | null)?.code;
-  return code === "CAPACITY_REACHED" || code === "QUEUE_TIMEOUT";
+  return code === "EMPTY_AUDIO" || code === "CAPACITY_REACHED" || code === "QUEUE_TIMEOUT";
 }

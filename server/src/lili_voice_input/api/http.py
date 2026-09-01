@@ -124,7 +124,11 @@ async def create_transcription(
         metrics.SESSION_OUTCOMES.labels(str(exc), "http").inc()
         outcome_recorded = True
         if str(exc) == "empty_audio":
-            raise HTTPException(status_code=422, detail="没有检测到有效录音") from exc
+            raise HTTPException(
+                status_code=422,
+                detail="没有检测到语音，或说话时间太短，请重试",
+                headers={"X-Error-Code": "EMPTY_AUDIO"},
+            ) from exc
         if str(exc) in {"max_duration_exceeded", "session_wall_timeout"}:
             raise HTTPException(status_code=422, detail="录音超过最大时长") from exc
         raise HTTPException(status_code=422, detail="音频格式无法处理") from exc

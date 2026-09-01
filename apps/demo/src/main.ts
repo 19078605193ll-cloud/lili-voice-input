@@ -88,7 +88,13 @@ function buildClient(): VoiceInputClient {
   });
   instance.on("final", (result) => showResult(result));
   instance.on("error", (error) => {
-    setBadge(connectionBadge, "错误", "error");
+    if (error.code === "EMPTY_AUDIO") {
+      recordStatus.textContent = "没有检测到语音，或说话时间太短，请重试";
+      recordButton.dataset.state = "default";
+      setBadge(connectionBadge, "等待重试", "warning");
+    } else {
+      setBadge(connectionBadge, "错误", "error");
+    }
     addEvent("error", { code: error.code, message: error.message, recoverable: error.recoverable });
   });
   return instance;

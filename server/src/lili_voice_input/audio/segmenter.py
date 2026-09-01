@@ -32,19 +32,22 @@ class AudioSegmenter:
         max_seconds: int,
         overlap_ms: int,
         silence_ms: int,
+        min_speech_ms: int = 200,
     ) -> None:
         if target_seconds <= 0 or max_seconds < target_seconds:
             raise ValueError("invalid_segment_duration")
-        if overlap_ms < 0 or silence_ms <= 0 or overlap_ms >= target_seconds * 1000:
+        if overlap_ms < 0 or silence_ms <= 0 or min_speech_ms <= 0 or overlap_ms >= target_seconds * 1000:
             raise ValueError("invalid_segment_boundary")
         self.target_bytes = target_seconds * SAMPLE_RATE * SAMPLE_WIDTH_BYTES
         self.max_bytes = max_seconds * SAMPLE_RATE * SAMPLE_WIDTH_BYTES
         self.overlap_bytes = milliseconds_to_bytes(overlap_ms)
         self.silence_ms = silence_ms
+        self.min_speech_ms = min_speech_ms
         self._buffer = bytearray()
         self._new_bytes = 0
         self._total_bytes = 0
         self._consecutive_silence_ms = 0
+        self._consecutive_speech_ms = 0
         self._noise_floor = 0.004
         self._has_speech = False
         self._has_new_speech = False
@@ -68,11 +71,14 @@ class AudioSegmenter:
         threshold = max(0.012, self._noise_floor * 2.8)
         frame_ms = bytes_to_milliseconds(len(pcm))
         if energy >= threshold:
-            self._has_speech = True
-            self._has_new_speech = True
+            self._consecutive_speech_ms += frame_ms
+            if self._consecutive_speech_ms >= self.min_speech_ms:
+                self._has_speech = True
+                self._has_new_speech = True
             self._consecutive_silence_ms = 0
         else:
             self._noise_floor = self._noise_floor * 0.92 + energy * 0.08
+            self._consecutive_speech_ms = 0
             self._consecutive_silence_ms += frame_ms
         at_silence = self._new_bytes >= self.target_bytes and self._consecutive_silence_ms >= self.silence_ms
         if self._new_bytes >= self.max_bytes or at_silence:
@@ -105,5 +111,6 @@ class AudioSegmenter:
     def _clear_buffer(self) -> None:
         self._buffer.clear()
         self._new_bytes = 0
+        self._consecutive_speech_ms = 0
         self._consecutive_silence_ms = 0
         self._has_new_speech = False

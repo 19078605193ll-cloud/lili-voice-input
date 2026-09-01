@@ -3,16 +3,21 @@ from array import array
 
 from fastapi.testclient import TestClient
 
-from lili_voice_input.audio.pcm import SAMPLE_RATE
+from lili_voice_input.audio.pcm import SAMPLE_RATE, pcm16_to_wav
 from lili_voice_input.main import app
 from lili_voice_input.providers.openai_polisher import PolishProviderError
 from lili_voice_input.services.admission import AdmissionRejected, LocalAdmissionController
 from lili_voice_input.services.polishing import PolishingService
 from lili_voice_input.services.streaming import FinalResult
+from lili_voice_input.services.transcription import TranscriptionService
 
 
 class FakeAsr:
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def transcribe(self, audio: bytes, *, audio_format: str, language: str | None = None) -> str:
+        self.calls += 1
         return "修改点 ENV 后等待八秒"
 
     async def close(self) -> None:
@@ -56,6 +61,11 @@ class FakePolisher:
 
     async def close(self) -> None:
         return None
+
+
+class PassthroughWavConverter:
+    async def convert_to_wav(self, content: bytes) -> bytes:
+        return content
 
 
 class RejectAdmission:
@@ -125,6 +135,36 @@ def test_http_response_exposes_polish_fallback_reason() -> None:
     assert response.json()["degraded_stage"] == "polish"
 
 
+def test_http_silence_returns_empty_audio_without_calling_asr() -> None:
+    asr = FakeAsr()
+    with TestClient(app) as client:
+        client.app.state.transcription_service = TranscriptionService(
+            client.app.state.settings,
+            PassthroughWavConverter(),
+            asr,
+            PolishingService(None, enabled=False),
+        )
+        response = client.post(
+            "/v1/transcriptions",
+            files={
+                "file": (
+                    "recording.wav",
+                    pcm16_to_wav(array("h", [0] * (SAMPLE_RATE // 2)).tobytes()),
+                    "audio/wav",
+                )
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "type": "error",
+        "code": "EMPTY_AUDIO",
+        "message": "没有检测到语音，或说话时间太短，请重试",
+        "recoverable": False,
+    }
+    assert asr.calls == 0
+
+
 def test_websocket_ready_then_final_without_partial() -> None:
     with TestClient(app) as client:
         client.app.state.asr_provider = FakeAsr()
@@ -150,6 +190,35 @@ def test_websocket_ready_then_final_without_partial() -> None:
             assert final["polish_status"] == "disabled"
             assert final["polish_reason"] is None
             assert "polish_reason_codes" not in final
+
+
+def test_websocket_silence_returns_empty_audio_without_calling_asr() -> None:
+    asr = FakeAsr()
+    with TestClient(app) as client:
+        client.app.state.asr_provider = asr
+        client.app.state.polishing_service = PolishingService(None, enabled=False)
+        with client.websocket_connect("/v1/transcriptions/stream") as websocket:
+            websocket.send_json(
+                {
+                    "type": "start",
+                    "protocol_version": "1",
+                    "format": "pcm16",
+                    "sample_rate": 16000,
+                    "language": "zh",
+                }
+            )
+            websocket.receive_json()
+            websocket.send_bytes(array("h", [0] * (SAMPLE_RATE // 2)).tobytes())
+            websocket.send_json({"type": "commit"})
+            error = websocket.receive_json()
+
+    assert error == {
+        "type": "error",
+        "code": "EMPTY_AUDIO",
+        "message": "没有检测到语音，或说话时间太短，请重试",
+        "recoverable": False,
+    }
+    assert asr.calls == 0
 
 
 def test_websocket_returns_polished_plain_text() -> None:

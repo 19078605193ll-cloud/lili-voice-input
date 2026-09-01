@@ -69,6 +69,7 @@ class Settings(BaseSettings):
     stt_segment_max_seconds: int = Field(default=45, ge=1)
     stt_segment_overlap_seconds: float = Field(default=1.0, ge=0)
     stt_segment_silence_ms: int = Field(default=600, ge=100)
+    stt_min_speech_ms: int = Field(default=200, ge=100)
     stt_segment_max_in_flight: int = Field(default=2, ge=1)
     stt_segment_max_retries: int = Field(default=2, ge=0, le=5)
     stt_max_concurrency: int = Field(default=3, ge=1)
@@ -142,6 +143,7 @@ class Settings(BaseSettings):
             "segment_max_seconds": self.stt_segment_max_seconds,
             "segment_overlap_ms": round(self.stt_segment_overlap_seconds * 1000),
             "segment_silence_ms": self.stt_segment_silence_ms,
+            "min_speech_ms": self.stt_min_speech_ms,
             "segment_max_in_flight": self.stt_segment_max_in_flight,
             "segment_max_retries": self.stt_segment_max_retries,
             "request_timeout_seconds": self.stt_request_timeout_seconds,

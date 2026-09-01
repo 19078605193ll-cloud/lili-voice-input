@@ -40,19 +40,23 @@ class OpenAICompatiblePolisher:
             max_retries=settings.polish_max_retries,
         )
         self._owns_client = client is None
-        prompt_path = Path(__file__).resolve().parent.parent / "prompts" / "stt_polish_system_prompt.txt"
-        self.system_prompt = prompt_path.read_text(encoding="utf-8").strip()
+        prompts_path = Path(__file__).resolve().parent.parent / "prompts"
+        self.system_prompt = (prompts_path / "stt_polish_system_prompt.txt").read_text(encoding="utf-8").strip()
+        self.user_prompt_template = (
+            prompts_path / "stt_polish_user_prompt.txt"
+        ).read_text(encoding="utf-8").strip()
 
     async def polish(self, transcript: str) -> str:
         if not self.settings.polish_api_key.strip() or not self.settings.polish_model.strip():
             raise PolishProviderError("configuration_error")
         started_at = time.perf_counter()
         try:
+            user_prompt = self.user_prompt_template.format(user_message=transcript)
             request: dict[str, object] = {
                 "model": self.settings.polish_model,
                 "messages": [
                     {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": transcript},
+                    {"role": "user", "content": user_prompt},
                 ],
                 "temperature": self.settings.polish_temperature,
                 "max_tokens": self.settings.polish_max_tokens,

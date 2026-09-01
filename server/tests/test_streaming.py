@@ -75,6 +75,32 @@ async def test_session_returns_final_without_partial() -> None:
 
 
 @pytest.mark.asyncio
+async def test_session_rejects_transient_noise_without_calling_asr() -> None:
+    asr = FakeAsr(["不应调用"])
+    session = StreamingSession(
+        asr_provider=asr,
+        polish_service=PolishingService(None, enabled=False),
+        segment_target_seconds=1,
+        segment_max_seconds=2,
+        segment_overlap_ms=100,
+        segment_silence_ms=200,
+        min_speech_ms=200,
+        segment_max_in_flight=1,
+        segment_max_retries=0,
+        request_timeout_seconds=1,
+        finalization_timeout_seconds=2,
+        max_duration_seconds=10,
+    )
+    await session.add_audio(tone(100))
+    await session.add_audio(silence(200))
+
+    with pytest.raises(ValueError, match="empty_audio"):
+        await session.finalize()
+
+    assert asr.calls == 0
+
+
+@pytest.mark.asyncio
 async def test_session_applies_plain_text_polish() -> None:
     polisher = FakePolisher("  等待 8 秒。  ")
     session = StreamingSession(

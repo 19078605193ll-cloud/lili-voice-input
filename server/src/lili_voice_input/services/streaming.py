@@ -64,6 +64,7 @@ class StreamingSession:
         segment_max_seconds: int = 45,
         segment_overlap_ms: int = 1000,
         segment_silence_ms: int = 600,
+        min_speech_ms: int = 200,
         segment_max_in_flight: int = 2,
         segment_max_retries: int = 2,
         request_timeout_seconds: float = 30,
@@ -82,6 +83,7 @@ class StreamingSession:
             max_seconds=segment_max_seconds,
             overlap_ms=segment_overlap_ms,
             silence_ms=segment_silence_ms,
+            min_speech_ms=min_speech_ms,
         )
         self.segment_max_retries = segment_max_retries
         self.request_timeout_seconds = request_timeout_seconds
