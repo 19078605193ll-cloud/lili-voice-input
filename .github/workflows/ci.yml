@@ -44,7 +44,8 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y ffmpeg
           uv sync --frozen
-          uv run uvicorn lili_voice_input.main:app --host 127.0.0.1 --port 9100 > /tmp/lili-voice-input.log 2>&1 &
+          .venv/bin/uvicorn lili_voice_input.main:app --host 127.0.0.1 --port 9100 > /tmp/lili-voice-input.log 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/lili-voice-input.pid"
           for attempt in {1..30}; do
             curl --fail --silent http://127.0.0.1:9100/health/ready && exit 0
             sleep 1
@@ -65,6 +66,15 @@ jobs:
         with:
           name: voice-server-load-log
           path: /tmp/lili-voice-input.log
+      - name: Stop load-test server
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/lili-voice-input.pid" ]; then
+            server_pid="$(cat "$RUNNER_TEMP/lili-voice-input.pid")"
+            if kill -0 "$server_pid" 2>/dev/null; then
+              kill "$server_pid" || true
+            fi
+          fi
 
   web:
     runs-on: ubuntu-latest
