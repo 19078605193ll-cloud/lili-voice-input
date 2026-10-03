@@ -138,30 +138,7 @@ await client.stop();
 
 SDK 只负责采集、传输和返回结果。最终文本是覆盖、插入还是追加到输入框，由接入网站决定。
 
-## 架构说明
 
-```mermaid
-flowchart LR
-    Browser["浏览器或宿主网站"] --> SDK["Browser SDK"]
-
-    SDK -->|"WebSocket · PCM16 音频块"| WS["FastAPI WebSocket API"]
-    SDK -.->|"HTTP fallback"| HTTP["FastAPI HTTP API"]
-
-    HTTP --> FFmpeg["FFmpeg 音频转换"]
-    WS --> Segment["滚动切片"]
-    FFmpeg --> Segment
-
-    Segment --> Queue["ASR 调度与限流"]
-    Queue --> Provider["ASR Provider"]
-    Provider --> Merge["合并分片文本"]
-    Merge --> Polish["可选文本整理"]
-    Polish --> Final["最终文本"]
-
-    Redis["可选 Redis"] -.-> Queue
-    Redis -.-> Admission["会话准入与匿名限流"]
-    Metrics["Prometheus 指标"] -.-> WS
-    Metrics -.-> HTTP
-```
 
 ### 处理流程
 
